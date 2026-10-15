@@ -9,7 +9,10 @@ module mycpu_top(
 	output[31:0]  data_sram_addr,
 	output[31:0]  data_sram_wdata,
 	input [31:0]  data_sram_rdata,
-    output[31:0]  debug
+    output[31:0]  debug_wb_pc,
+    output[3:0]   debug_wb_rf_wen,
+    output[4:0]   debug_wb_rf_wnum,
+    output[31:0]  debug_wb_rf_wdata,
 );
 
 reg[31:0] pc;
@@ -74,13 +77,43 @@ wire inst_addi_w;
 wire inst_ld_w;
 wire inst_st_w;
 wire inst_bne;
+wire inst_sub_w;
+wire inst_slt;
+wire inst_sltu;
+wire inst_slli_w;
+wire inst_srli_w;
+wire inst_srai_w;
+wire inst_and;
+wire inst_or;
+wire inst_nor;
+wire inst_xor;
+wire inst_lu12i;
+wire inst_beq;
+wire inst_b;
+wire inst_bl;
+wire inst_jirl;
 assign inst_add_w  = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h00];
 assign inst_addi_w = op_31_26_d[6'h00] & op_25_22_d[4'ha];
 assign inst_ld_w   = op_31_26_d[6'h0a] & op_25_22_d[4'h2];
-assign inst_st_w   = op_31_26_d[6'h0a] & op_25_22_d[4'h6];//ÔÚÕâÀïÊµÏÖinst_st_wÖ¸ÁîµÄÒëÂë
+assign inst_st_w   = op_31_26_d[6'h0a] & op_25_22_d[4'h6];//åœ¨è¿™é‡Œå®ç°inst_st_wæŒ‡ä»¤çš„è¯‘ç 
 assign inst_bne    = op_31_26_d[6'h17];
+assign inst_sub_w  = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h02];
+assign inst_slt    = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h04];
+assign inst_sltu   = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h05];
+assign inst_slli_w = op_31_26_d[6'h00] & op_25_22_d[4'h1] & op_21_20_d[2'h0] & op_19_15_d[5'h01];
+assign inst_srli_w = op_31_26_d[6'h00] & op_25_22_d[4'h1] & op_21_20_d[2'h0] & op_19_15_d[5'h09];
+assign inst_srai_w = op_31_26_d[6'h00] & op_25_22_d[4'h1] & op_21_20_d[2'h0] & op_19_15_d[5'h11];
+assign inst_and    = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h09];
+assign inst_or     = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h0a];
+assign inst_nor    = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h08];
+assign inst_xor    = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h0b];
+assign inst_lu12i  = op_31_26_d[6'h05];
+assign inst_beq    = op_31_26_d[6'h16];
+assign inst_b      = op_31_26_d[6'h14];
+assign inst_bl     = op_31_26_d[6'h15];
+assign inst_jirl   = op_31_26_d[6'h13];
 
-assign src2_is_imm  = inst_addi_w | inst_ld_w | inst_st_w;//ÔÚÕâÀïÊµÏÖÁ¢¼´ÊıÑ¡ÔñĞÅºÅ
+assign src2_is_imm  = inst_addi_w | inst_ld_w | inst_st_w;//åœ¨è¿™é‡Œå®ç°ç«‹å³æ•°é€‰æ‹©ä¿¡å·
 assign res_from_mem = inst_ld_w;
 assign gr_we        = inst_add_w | inst_ld_w | inst_addi_w;
 assign mem_we       = inst_st_w;
@@ -101,18 +134,18 @@ regfile u_regfile(
     .we     (gr_we    ),
     .waddr  (rd       ),
     .wdata  (rf_wdata )
-    );//ÔÚ¿Õ³öµÄÀ¨ºÅÀïÍê³ÉÒı½ÅÆ¥Åä
+    );//åœ¨ç©ºå‡ºçš„æ‹¬å·é‡Œå®Œæˆå¼•è„šåŒ¹é…
 
 
 wire br_taken;
 wire rj_eq_rd;
 wire [31:0] br_offs;
 wire [31:0] br_target;
-assign br_offs={{14{i16[15]}}, i16, 2'b0};//ÔÚÕâÀïÍê³Ébr_offsĞÅºÅµÄÉú³É
+assign br_offs={{14{i16[15]}}, i16, 2'b0};//åœ¨è¿™é‡Œå®Œæˆbr_offsä¿¡å·çš„ç”Ÿæˆ
 assign br_target=pc+br_offs;
 assign rj_eq_rd=(rj_value == rkd_value);
 assign br_taken=inst_bne&&!rj_eq_rd;
-assign nextpc=br_taken?br_target:pc+32'd4;//ÔÚÕâÀïÊµÏÖnextpcĞÅºÅµÄÉú³É
+assign nextpc=br_taken?br_target:pc+32'd4;//åœ¨è¿™é‡Œå®ç°nextpcä¿¡å·çš„ç”Ÿæˆ
 
 
 wire[31:0] imm;
@@ -121,14 +154,14 @@ wire[31:0] alu_src2;
 wire[31:0] alu_result;
 assign imm= {{20{i12[11]}},i12[11:0]};
 assign alu_src1=rj_value;
-assign alu_src2=src2_is_imm?imm:rkd_value;//ÔÚÕâÀïÊµÏÖalu_src2ĞÅºÅ
+assign alu_src2=src2_is_imm?imm:rkd_value;//åœ¨è¿™é‡Œå®ç°alu_src2ä¿¡å·
 
 assign alu_result=alu_src1+alu_src2;
 
 assign data_sram_wen=mem_we;
 assign data_sram_addr=alu_result;
 assign data_sram_wdata=rkd_value;
-assign rf_wdata=res_from_mem?data_sram_rdata:alu_result;//ÔÚÕâÀïÍê³ÉĞ´»Ø¼Ä´æÆ÷ÖµµÄÑ¡Ôñ
+assign rf_wdata=res_from_mem?data_sram_rdata:alu_result;//åœ¨è¿™é‡Œå®Œæˆå†™å›å¯„å­˜å™¨å€¼çš„é€‰æ‹©
 
 
 endmodule
