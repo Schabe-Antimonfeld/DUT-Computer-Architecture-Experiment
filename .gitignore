@@ -1,0 +1,44 @@
+# Vivado projects (gettrace and mycpu_verify/run_vivado): the project files
+# (.xpr, .xci) and all sources are tracked, everything Vivado regenerates when
+# the project is opened or a run is launched is ignored.
+
+# Generated project directories
+.Xil/
+*.cache/
+*.hw/
+*.sim/
+*.runs/
+*.gen/
+*.ip_user_files/
+*.srcs/
+
+# Logs, journals and reports
+*.jou
+*.log
+*.str
+xsim.dir/
+
+# Implementation and simulation outputs
+*.dcp
+*.bit
+*.ltx
+*.wdb
+*.wcfg
+*.vcd
+*.wlf
+
+# Editor and OS files
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
+*.swp
+*~
+
+# func/obj holds the outputs consumed by simulation, which Windows cannot
+# regenerate without the loongarch32 toolchain, so those are tracked.
+# Everything else there is intermediate make output.
+func/obj/*
+!func/obj/inst_ram.coe
+!func/obj/inst_ram.mif
+!func/obj/test.s
