@@ -47,6 +47,7 @@ wire [ 4:0] rj;
 wire [ 4:0] rk;
 wire [11:0] i12;
 wire [15:0] i16;
+wire []
 
 wire        src2_is_imm;
 wire        res_from_mem;
@@ -64,8 +65,11 @@ assign op_19_15  = inst[19:15];
 assign rd   = inst[ 4: 0];
 assign rj   = inst[ 9: 5];
 assign rk   = inst[14:10];
+assign i5   = inst[ 9: 5]
 assign i12  = inst[21:10];
 assign i16  = inst[25:10];
+assign i20  = inst[24: 5];
+assign i26  = inst[25: 0];
 
 decoder_6_64 u_dec0(.in(op_31_26 ), .co(op_31_26_d ));
 decoder_4_16 u_dec1(.in(op_25_22 ), .co(op_25_22_d ));
@@ -113,7 +117,7 @@ assign inst_b      = op_31_26_d[6'h14];
 assign inst_bl     = op_31_26_d[6'h15];
 assign inst_jirl   = op_31_26_d[6'h13];
 
-assign src2_is_imm  = inst_addi_w | inst_ld_w | inst_st_w;//在这里实现立即数选择信号
+assign src2_is_imm  = inst_addi_w | inst_ld_w | inst_st_w | inst_slli_w | inst_srli_w | inst_srai_w | inst_lu12i;//在这里实现立即数选择信号
 assign res_from_mem = inst_ld_w;
 assign gr_we        = inst_add_w | inst_ld_w | inst_addi_w;
 assign mem_we       = inst_st_w;
@@ -141,7 +145,13 @@ wire br_taken;
 wire rj_eq_rd;
 wire [31:0] br_offs;
 wire [31:0] br_target;
-assign br_offs = {{14{i16[15]}}, i16, 2'b0};//在这里完成br_offs信号的生成
+
+always @(*) begin
+    if (inst_bne || inst_beq || inst jirl) br_offs = {{14{i16[15]}}, i16, 2'b0};
+    else if (inst_b || inst_bl) br_offs = {{4{i26[25]}}, i26, 2'b0};
+    else br_offs = 32'd4;
+end
+
 assign br_target = pc + br_offs;
 assign rj_eq_rd = (rj_value == rkd_value);
 assign br_taken = inst_bne && !rj_eq_rd;
@@ -152,11 +162,29 @@ wire[31:0] imm;
 wire[31:0] alu_src1;
 wire[31:0] alu_src2;
 wire[31:0] alu_result;
-assign imm = {{20{i12[11]}},i12[11:0]};
+
+always @(*) begin
+    if (inst_addi_w || inst_ld_w || inst_st_w || inst_lu12i) imm = {{20{i12[11]}},i12[11:0]};
+    else if (inst_slli_w || inst_srli_w || inst_srai_w) imm = {27'b0, i5[11:0]};
+end
+
 assign alu_src1 = rj_value;
 assign alu_src2 = src2_is_imm ? imm : rkd_value;//在这里实现alu_src2信号
 
-assign alu_result=alu_src1+alu_src2;
+always @(*) begin
+    if (inst_add_w || inst_addi_w || inst_ld_w || inst_st_w) alu_result = alu_src1 + alu_src2;
+    else if (inst_sub_w) alu_result = alu_src1 - alu_src2;
+    else if (inst_slt) alu_result = ($signed(alu_src1) < $signed(alu_src2)) ? 32'b1 : 32'b0;
+    else if (inst_sltu) alu_result = (alu_src1 < alu_src2) ? 32'b1 : 32'b0;
+    else if (inst_slli_w) alu_result = alu_src1 << alu_src2[4:0];
+    else if (inst_srli_w) alu_result = alu_src1 >> alu_src2[4:0];
+    else if (inst_srai_w) alu_result = $signed(alu_src1) >>> alu_src2[4:0];
+    else if (inst_and) alu_result = alu_src1 & alu_src2;
+    else if (inst_or) alu_result = alu_src1 | alu_src2;
+    else if (inst_nor) alu_result = ~(alu_src1 | alu_src2);
+    else if (inst_xor) alu_result = alu_src1 ^ alu_src2;
+    else alu_result = 32'b0;
+end
 
 assign data_sram_wen = mem_we;
 assign data_sram_addr = alu_result;
