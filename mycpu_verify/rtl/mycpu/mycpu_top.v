@@ -141,27 +141,27 @@ wire br_taken;
 wire rj_eq_rd;
 wire [31:0] br_offs;
 wire [31:0] br_target;
-assign br_offs={{14{i16[15]}}, i16, 2'b0};//在这里完成br_offs信号的生成
-assign br_target=pc+br_offs;
-assign rj_eq_rd=(rj_value == rkd_value);
-assign br_taken=inst_bne&&!rj_eq_rd;
-assign nextpc=br_taken?br_target:pc+32'd4;//在这里实现nextpc信号的生成
+assign br_offs = {{14{i16[15]}}, i16, 2'b0};//在这里完成br_offs信号的生成
+assign br_target = pc + br_offs;
+assign rj_eq_rd = (rj_value == rkd_value);
+assign br_taken = inst_bne && !rj_eq_rd;
+assign nextpc = br_taken ? br_target : pc + 32'd4;//在这里实现nextpc信号的生成
 
 
 wire[31:0] imm;
 wire[31:0] alu_src1;
 wire[31:0] alu_src2;
 wire[31:0] alu_result;
-assign imm= {{20{i12[11]}},i12[11:0]};
-assign alu_src1=rj_value;
-assign alu_src2=src2_is_imm?imm:rkd_value;//在这里实现alu_src2信号
+assign imm = {{20{i12[11]}},i12[11:0]};
+assign alu_src1 = rj_value;
+assign alu_src2 = src2_is_imm ? imm : rkd_value;//在这里实现alu_src2信号
 
 assign alu_result=alu_src1+alu_src2;
 
-assign data_sram_wen=mem_we;
-assign data_sram_addr=alu_result;
-assign data_sram_wdata=rkd_value;
-assign rf_wdata=res_from_mem?data_sram_rdata:alu_result;//在这里完成写回寄存器值的选择
+assign data_sram_wen = mem_we;
+assign data_sram_addr = alu_result;
+assign data_sram_wdata = rkd_value;
+assign rf_wdata = res_from_mem ? data_sram_rdata : alu_result;//在这里完成写回寄存器值的选择
 
 
 endmodule
