@@ -8,11 +8,7 @@ module mycpu_top(
 	output        data_sram_wen,
 	output[31:0]  data_sram_addr,
 	output[31:0]  data_sram_wdata,
-	input [31:0]  data_sram_rdata,
-    output[31:0]  debug_wb_pc,
-    output[3:0]   debug_wb_rf_wen,
-    output[4:0]   debug_wb_rf_wnum,
-    output[31:0]  debug_wb_rf_wdata,
+	input [31:0]  data_sram_rdata
 );
 
 reg[31:0] pc;
@@ -45,9 +41,11 @@ wire [31:0] op_19_15_d;
 wire [ 4:0] rd;
 wire [ 4:0] rj;
 wire [ 4:0] rk;
+wire [ 4:0] i5;
 wire [11:0] i12;
 wire [15:0] i16;
-wire []
+wire [19:0] i20;
+wire [25:0] i26;
 
 wire        src2_is_imm;
 wire        res_from_mem;
@@ -65,7 +63,7 @@ assign op_19_15  = inst[19:15];
 assign rd   = inst[ 4: 0];
 assign rj   = inst[ 9: 5];
 assign rk   = inst[14:10];
-assign i5   = inst[ 9: 5]
+assign i5   = inst[ 9: 5];
 assign i12  = inst[21:10];
 assign i16  = inst[25:10];
 assign i20  = inst[24: 5];
@@ -117,18 +115,26 @@ assign inst_b      = op_31_26_d[6'h14];
 assign inst_bl     = op_31_26_d[6'h15];
 assign inst_jirl   = op_31_26_d[6'h13];
 
-assign src2_is_imm  = inst_addi_w | inst_ld_w | inst_st_w | inst_slli_w | inst_srli_w | inst_srai_w | inst_lu12i;//在这里实现立即数选择信号
+assign src2_is_imm  = inst_addi_w | inst_ld_w | inst_st_w | inst_slli_w | inst_srli_w | inst_srai_w | inst_lu12i;
 assign res_from_mem = inst_ld_w;
-assign gr_we        = inst_add_w | inst_ld_w | inst_addi_w;
+assign gr_we        = inst_add_w | inst_ld_w | inst_addi_w
+                    | inst_sub_w | inst_slt | inst_sltu
+                    | inst_slli_w | inst_srli_w | inst_srai_w
+                    | inst_and | inst_or | inst_nor | inst_xor
+                    | inst_lu12i
+                    | inst_bl | inst_jirl;
+
 assign mem_we       = inst_st_w;
-assign src_reg_is_rd= inst_bne | inst_st_w;
+assign src_reg_is_rd= inst_bne | inst_st_w | inst_beq;
 
 
 wire[4:0] rf_raddr1;
 wire[4:0] rf_raddr2;
 wire[31:0] rf_wdata;
+wire[ 4:0] rf_waddr;
 assign rf_raddr1 =rj;
 assign rf_raddr2 = src_reg_is_rd ? rd :rk;
+assign rf_waddr = inst_bl ? 5'd1 : rd;
 regfile u_regfile(
     .clk    (clk      ),
     .raddr1 (rf_raddr1),
@@ -136,7 +142,7 @@ regfile u_regfile(
     .raddr2 (rf_raddr2),
     .rdata2 (rkd_value),
     .we     (gr_we    ),
-    .waddr  (rd       ),
+    .waddr  (rf_waddr ),
     .wdata  (rf_wdata )
     );//在空出的括号里完成引脚匹配
 
@@ -146,16 +152,11 @@ wire rj_eq_rd;
 wire [31:0] br_offs;
 wire [31:0] br_target;
 
-always @(*) begin
-    if (inst_bne || inst_beq || inst jirl) br_offs = {{14{i16[15]}}, i16, 2'b0};
-    else if (inst_b || inst_bl) br_offs = {{4{i26[25]}}, i26, 2'b0};
-    else br_offs = 32'd4;
-end
-
+assign br_offs = (inst_bne | inst_beq | inst_jirl) ? {{14{i16[15]}}, i16, 2'b0} : {{4{i26[25]}}, i26, 2'b0};
 assign br_target = pc + br_offs;
 assign rj_eq_rd = (rj_value == rkd_value);
-assign br_taken = inst_bne && !rj_eq_rd;
-assign nextpc = br_taken ? br_target : pc + 32'd4;//在这里实现nextpc信号的生成
+assign br_taken = (inst_bne && !rj_eq_rd) | (inst_beq && rj_eq_rd) | inst_b | inst_bl | inst_jirl;
+assign nextpc = inst_jirl ? rj_value + br_offs : br_taken ? br_target : pc + 32'd4;
 
 
 wire[31:0] imm;
@@ -163,34 +164,49 @@ wire[31:0] alu_src1;
 wire[31:0] alu_src2;
 wire[31:0] alu_result;
 
-always @(*) begin
-    if (inst_addi_w || inst_ld_w || inst_st_w || inst_lu12i) imm = {{20{i12[11]}},i12[11:0]};
-    else if (inst_slli_w || inst_srli_w || inst_srai_w) imm = {27'b0, i5[11:0]};
-end
+assign imm =
+    (inst_addi_w | inst_ld_w | inst_st_w)
+        ? {{20{i12[11]}}, i12} :
+    (inst_slli_w | inst_srli_w | inst_srai_w) 
+        ? {27'b0, i5} :
+    inst_lu12i
+        ? {i20, 12'b0} :
+    32'b0;
 
 assign alu_src1 = rj_value;
 assign alu_src2 = src2_is_imm ? imm : rkd_value;//在这里实现alu_src2信号
 
-always @(*) begin
-    if (inst_add_w || inst_addi_w || inst_ld_w || inst_st_w) alu_result = alu_src1 + alu_src2;
-    else if (inst_sub_w) alu_result = alu_src1 - alu_src2;
-    else if (inst_slt) alu_result = ($signed(alu_src1) < $signed(alu_src2)) ? 32'b1 : 32'b0;
-    else if (inst_sltu) alu_result = (alu_src1 < alu_src2) ? 32'b1 : 32'b0;
-    else if (inst_slli_w) alu_result = alu_src1 << alu_src2[4:0];
-    else if (inst_srli_w) alu_result = alu_src1 >> alu_src2[4:0];
-    else if (inst_srai_w) alu_result = $signed(alu_src1) >>> alu_src2[4:0];
-    else if (inst_and) alu_result = alu_src1 & alu_src2;
-    else if (inst_or) alu_result = alu_src1 | alu_src2;
-    else if (inst_nor) alu_result = ~(alu_src1 | alu_src2);
-    else if (inst_xor) alu_result = alu_src1 ^ alu_src2;
-    else alu_result = 32'b0;
-end
+assign alu_result =
+    (inst_add_w | inst_addi_w | inst_ld_w | inst_st_w)
+        ? alu_src1 + alu_src2 :
+    inst_sub_w
+        ? alu_src1 - alu_src2 :
+    inst_slt
+        ? {31'b0, ($signed(alu_src1) < $signed(alu_src2))} :
+    inst_sltu
+        ? {31'b0, (alu_src1 < alu_src2)} :
+    inst_slli_w
+        ? alu_src1 << alu_src2[4:0] :
+    inst_srli_w
+        ? alu_src1 >> alu_src2[4:0] :
+    inst_srai_w
+        ? $signed(alu_src1) >>> alu_src2[4:0] :
+    inst_and
+        ? alu_src1 & alu_src2 :
+    inst_or
+        ? alu_src1 | alu_src2 :
+    inst_nor
+        ? ~(alu_src1 | alu_src2) :
+    inst_xor
+        ? alu_src1 ^ alu_src2 :
+    inst_lu12i
+        ? alu_src2 :
+    32'b0;
 
 assign data_sram_wen = mem_we;
 assign data_sram_addr = alu_result;
 assign data_sram_wdata = rkd_value;
-assign rf_wdata = res_from_mem ? data_sram_rdata : alu_result;//在这里完成写回寄存器值的选择
+assign rf_wdata = (inst_bl | inst_jirl) ? pc + 32'd4 : res_from_mem ? data_sram_rdata : alu_result;
 
 
 endmodule
-                         
