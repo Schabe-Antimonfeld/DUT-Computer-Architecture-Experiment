@@ -8,7 +8,11 @@ module mycpu_top(
 	output        data_sram_wen,
 	output[31:0]  data_sram_addr,
 	output[31:0]  data_sram_wdata,
-	input [31:0]  data_sram_rdata
+	input [31:0]  data_sram_rdata,
+    output[31:0]  debug_wb_pc,
+    output[3:0]   debug_wb_rf_wen,
+    output[4:0]   debug_wb_rf_wnum,
+    output[31:0]  debug_wb_rf_wdata
 );
 
 reg[31:0] pc;
@@ -207,6 +211,10 @@ assign data_sram_wen = mem_we;
 assign data_sram_addr = alu_result;
 assign data_sram_wdata = rkd_value;
 assign rf_wdata = (inst_bl | inst_jirl) ? pc + 32'd4 : res_from_mem ? data_sram_rdata : alu_result;
+assign debug_wb_pc = pc;
+assign debug_wb_rf_wen = {4{gr_we && resetn}};
+assign debug_wb_rf_wnum = rf_waddr;
+assign debug_wb_rf_wdata = rf_wdata;
 
 
 endmodule
