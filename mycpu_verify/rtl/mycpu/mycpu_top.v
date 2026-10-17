@@ -18,8 +18,8 @@ module mycpu_top(
 reg[31:0] pc;
 wire[31:0] nextpc;
 always@(posedge clk) begin
-  if(!resetn)begin
-    pc <= 32'h1bc00000;
+  if(!resetn) begin
+    pc <= 32'h1c000000;
     end
   else begin 
     pc <= nextpc;
@@ -67,11 +67,11 @@ assign op_19_15  = inst[19:15];
 assign rd   = inst[ 4: 0];
 assign rj   = inst[ 9: 5];
 assign rk   = inst[14:10];
-assign i5   = inst[ 9: 5];
+assign i5   = inst[14:10];
 assign i12  = inst[21:10];
 assign i16  = inst[25:10];
 assign i20  = inst[24: 5];
-assign i26  = inst[25: 0];
+assign i26  = {inst[9:0], inst[25:10]};
 
 decoder_6_64 u_dec0(.in(op_31_26 ), .co(op_31_26_d ));
 decoder_4_16 u_dec1(.in(op_25_22 ), .co(op_25_22_d ));
@@ -101,7 +101,7 @@ wire inst_jirl;
 assign inst_add_w  = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h00];
 assign inst_addi_w = op_31_26_d[6'h00] & op_25_22_d[4'ha];
 assign inst_ld_w   = op_31_26_d[6'h0a] & op_25_22_d[4'h2];
-assign inst_st_w   = op_31_26_d[6'h0a] & op_25_22_d[4'h6];//在这里实现inst_st_w指令的译码
+assign inst_st_w   = op_31_26_d[6'h0a] & op_25_22_d[4'h6];
 assign inst_bne    = op_31_26_d[6'h17];
 assign inst_sub_w  = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h02];
 assign inst_slt    = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'h1] & op_19_15_d[5'h04];
@@ -148,7 +148,7 @@ regfile u_regfile(
     .we     (gr_we    ),
     .waddr  (rf_waddr ),
     .wdata  (rf_wdata )
-    );//在空出的括号里完成引脚匹配
+    );//在空出的括号里完成引脚匹�?
 
 
 wire br_taken;
@@ -167,6 +167,7 @@ wire[31:0] imm;
 wire[31:0] alu_src1;
 wire[31:0] alu_src2;
 wire[31:0] alu_result;
+wire[31:0] srai_result;
 
 assign imm =
     (inst_addi_w | inst_ld_w | inst_st_w)
@@ -178,7 +179,8 @@ assign imm =
     32'b0;
 
 assign alu_src1 = rj_value;
-assign alu_src2 = src2_is_imm ? imm : rkd_value;//在这里实现alu_src2信号
+assign alu_src2 = src2_is_imm ? imm : rkd_value;
+assign srai_result = $signed(alu_src1) >>> alu_src2[4:0]; //垃圾特性，如果放在里面会自动变成无符号
 
 assign alu_result =
     (inst_add_w | inst_addi_w | inst_ld_w | inst_st_w)
@@ -194,7 +196,7 @@ assign alu_result =
     inst_srli_w
         ? alu_src1 >> alu_src2[4:0] :
     inst_srai_w
-        ? $signed(alu_src1) >>> alu_src2[4:0] :
+        ? srai_result :
     inst_and
         ? alu_src1 & alu_src2 :
     inst_or

@@ -42,3 +42,5 @@ func/obj/*
 !func/obj/inst_ram.coe
 !func/obj/inst_ram.mif
 !func/obj/test.s
+
+xilinx_ip/
