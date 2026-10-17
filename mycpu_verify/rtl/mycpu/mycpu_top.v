@@ -148,7 +148,7 @@ regfile u_regfile(
     .we     (gr_we    ),
     .waddr  (rf_waddr ),
     .wdata  (rf_wdata )
-    );//在空出的括号里完成引脚匹�?
+    );
 
 
 wire br_taken;
@@ -164,10 +164,10 @@ assign nextpc = inst_jirl ? rj_value + br_offs : br_taken ? br_target : pc + 32'
 
 
 wire[31:0] imm;
+wire[14:0] alu_op;
 wire[31:0] alu_src1;
 wire[31:0] alu_src2;
 wire[31:0] alu_result;
-wire[31:0] srai_result;
 
 assign imm =
     (inst_addi_w | inst_ld_w | inst_st_w)
@@ -178,36 +178,19 @@ assign imm =
         ? {i20, 12'b0} :
     32'b0;
 
+assign alu_op = {
+    inst_add_w, inst_addi_w, inst_ld_w, inst_st_w, inst_sub_w,
+    inst_slt, inst_sltu, inst_slli_w, inst_srli_w, inst_srai_w,
+    inst_and, inst_or, inst_nor, inst_xor, inst_lu12i
+};
 assign alu_src1 = rj_value;
 assign alu_src2 = src2_is_imm ? imm : rkd_value;
-assign srai_result = $signed(alu_src1) >>> alu_src2[4:0]; //垃圾特性，如果放在里面会自动变成无符号
-
-assign alu_result =
-    (inst_add_w | inst_addi_w | inst_ld_w | inst_st_w)
-        ? alu_src1 + alu_src2 :
-    inst_sub_w
-        ? alu_src1 - alu_src2 :
-    inst_slt
-        ? {31'b0, ($signed(alu_src1) < $signed(alu_src2))} :
-    inst_sltu
-        ? {31'b0, (alu_src1 < alu_src2)} :
-    inst_slli_w
-        ? alu_src1 << alu_src2[4:0] :
-    inst_srli_w
-        ? alu_src1 >> alu_src2[4:0] :
-    inst_srai_w
-        ? srai_result :
-    inst_and
-        ? alu_src1 & alu_src2 :
-    inst_or
-        ? alu_src1 | alu_src2 :
-    inst_nor
-        ? ~(alu_src1 | alu_src2) :
-    inst_xor
-        ? alu_src1 ^ alu_src2 :
-    inst_lu12i
-        ? alu_src2 :
-    32'b0;
+alu u_alu(
+    .op     (alu_op    ),
+    .src1   (alu_src1  ),
+    .src2   (alu_src2  ),
+    .result (alu_result)
+    );
 
 assign data_sram_wen = mem_we;
 assign data_sram_addr = alu_result;
