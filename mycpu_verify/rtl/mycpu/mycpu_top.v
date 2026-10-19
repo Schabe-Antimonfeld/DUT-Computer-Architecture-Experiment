@@ -157,10 +157,10 @@ wire [31:0] br_offs;
 wire [31:0] br_target;
 
 assign br_offs = (inst_bne | inst_beq | inst_jirl) ? {{14{i16[15]}}, i16, 2'b0} : {{4{i26[25]}}, i26, 2'b0};
-assign br_target = pc + br_offs;
+assign br_target = inst_jirl ? rj_value + br_offs : pc + br_offs;
 assign rj_eq_rd = (rj_value == rkd_value);
 assign br_taken = (inst_bne && !rj_eq_rd) | (inst_beq && rj_eq_rd) | inst_b | inst_bl | inst_jirl;
-assign nextpc = inst_jirl ? rj_value + br_offs : br_taken ? br_target : pc + 32'd4;
+assign nextpc = br_taken ? br_target : pc + 32'd4;
 
 
 wire[31:0] imm;
