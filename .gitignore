@@ -1,4 +1,4 @@
-# Vivado projects (gettrace and mycpu_verify/run_vivado): the project files
+# Vivado project (mycpu_verify/run_vivado): the project files
 # (.xpr, .xci) and all sources are tracked, everything Vivado regenerates when
 # the project is opened or a run is launched is ignored.
 
@@ -42,5 +42,9 @@ func/obj/*
 !func/obj/inst_ram.coe
 !func/obj/inst_ram.mif
 !func/obj/test.s
+
+# Keep only the reference trace from gettrace in version control.
+/gettrace/*
+!/gettrace/golden_trace.txt
 
 xilinx_ip/
