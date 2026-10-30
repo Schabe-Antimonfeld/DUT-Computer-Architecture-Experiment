@@ -20,11 +20,11 @@ assign result =
     op[ 7] ? src1 << src2[4:0] :                        // slli_w
     op[ 6] ? src1 >> src2[4:0] :                        // srli_w
     op[ 5] ? srai_result :                              // srai_w
-    op[ 4] ? src1 & src2 :                              // and_w
-    op[ 3] ? src1 | src2 :                              // or_w
-    op[ 2] ? ~(src1 | src2) :                           // nor_w
-    op[ 1] ? src1 ^ src2 :                              // xor_w
-    op[ 0] ? src2 :                                     // mov_w
+    op[ 4] ? src1 & src2 :                              // and
+    op[ 3] ? src1 | src2 :                              // or
+    op[ 2] ? ~(src1 | src2) :                           // nor
+    op[ 1] ? src1 ^ src2 :                              // xor
+    op[ 0] ? src2 :                                     // lu12i
     32'b0;
 
 
